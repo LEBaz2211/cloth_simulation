@@ -1,3 +1,5 @@
+use std::time::{Duration, Instant};
+
 use crate::sim_gen::{generate_cloth, generate_sphere, Vertex};
 
 use wgpu_bootstrap::{
@@ -23,7 +25,6 @@ pub struct ClothSimApp {
     index_buffer: wgpu::Buffer,
     num_indices: u32,
 
-    cloth_vertex_buffer: wgpu::Buffer,
     cloth_index_buffer: wgpu::Buffer,
     cloth_vertex_position_buffer: wgpu::Buffer,
     cloth_num_indices: u32,
@@ -35,7 +36,8 @@ pub struct ClothSimApp {
 
     step: u32,
     camera: OrbitCamera,
-    simulation_time: f32,
+    generation_duration: Duration,
+    last_generation: Instant,
 }
 
 impl ClothSimApp {
@@ -87,18 +89,6 @@ impl ClothSimApp {
             .map(|v| v.clone())
             .collect::<Vec<Vertex>>();
         let cloth_indices: &[u32] = &cloth_indices;
-
-        let cloth_vertex_buffer =
-            context
-                .device()
-                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some("Cloth Vertex Buffer"),
-                    contents: bytemuck::cast_slice(&cloth_vertices),
-                    usage: wgpu::BufferUsages::VERTEX
-                        | wgpu::BufferUsages::COPY_DST
-                        | wgpu::BufferUsages::STORAGE
-                        | wgpu::BufferUsages::COPY_SRC,
-                });
 
         let cloth_index_buffer =
             context
@@ -153,71 +143,6 @@ impl ClothSimApp {
                 }],
                 label: Some("compute_bind_group"),
             });
-
-        let bind_group_layout =
-            context
-                .device()
-                .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                    label: Some("Camera Bind Group Layout"),
-                    entries: &[
-                        wgpu::BindGroupLayoutEntry {
-                            binding: 0,
-                            visibility: wgpu::ShaderStages::VERTEX,
-                            ty: wgpu::BindingType::Buffer {
-                                ty: wgpu::BufferBindingType::Uniform,
-                                has_dynamic_offset: false,
-                                min_binding_size: wgpu::BufferSize::new(std::mem::size_of::<
-                                    CameraUniform,
-                                >(
-                                )
-                                    as u64),
-                            },
-                            count: None,
-                        },
-                        wgpu::BindGroupLayoutEntry {
-                            binding: 1,
-                            visibility: wgpu::ShaderStages::COMPUTE | wgpu::ShaderStages::VERTEX,
-                            ty: wgpu::BindingType::Buffer {
-                                ty: wgpu::BufferBindingType::Storage { read_only: true },
-                                has_dynamic_offset: false,
-                                min_binding_size: None,
-                            },
-                            count: None,
-                        },
-                        wgpu::BindGroupLayoutEntry {
-                            binding: 2,
-                            visibility: wgpu::ShaderStages::COMPUTE,
-                            ty: wgpu::BindingType::Buffer {
-                                ty: wgpu::BufferBindingType::Storage { read_only: false },
-                                has_dynamic_offset: false,
-                                min_binding_size: None,
-                            },
-                            count: None,
-                        },
-                    ],
-                });
-
-        let cloth_vertex_storage_buffer = [
-            context
-                .device()
-                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some("Cloth Vertex Storage Buffer"),
-                    contents: bytemuck::cast_slice(&cloth_vertices),
-                    usage: wgpu::BufferUsages::STORAGE
-                        | wgpu::BufferUsages::VERTEX
-                        | wgpu::BufferUsages::COPY_DST
-                        | wgpu::BufferUsages::COPY_SRC,
-                }),
-            context
-                .device()
-                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some("Cloth Vertex Storage Buffer"),
-                    contents: bytemuck::cast_slice(&cloth_vertices),
-                    usage: wgpu::BufferUsages::STORAGE
-                        | wgpu::BufferUsages::COPY_DST
-                        | wgpu::BufferUsages::COPY_SRC,
-                }),
-        ];
 
         let mut camera = OrbitCamera::new(
             context,
@@ -328,7 +253,6 @@ impl ClothSimApp {
             index_buffer,
             num_indices,
 
-            cloth_vertex_buffer,
             cloth_index_buffer,
             cloth_num_indices,
             cloth_num_vertices,
@@ -340,31 +264,37 @@ impl ClothSimApp {
 
             step: 0,
             camera,
-            simulation_time: 0.0,
+            generation_duration: Duration::new(0, 100_000_00),
+            last_generation: Instant::now(),
         }
     }
 
     fn update(&mut self, context: &mut Context) {
-        let mut encoder =
-            context
-                .device()
-                .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                    label: Some("Compute Encoder"),
+        if self.last_generation + self.generation_duration < Instant::now() {
+            let mut encoder =
+                context
+                    .device()
+                    .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                        label: Some("Compute Encoder"),
+                    });
+
+            {
+                let mut compute_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+                    label: Some("Compute Pass"),
                 });
+                compute_pass.set_pipeline(&self.compute_pipeline); // Compute pipeline you've created
+                compute_pass.set_bind_group(0, &self.compute_bind_group, &[]);
 
-        {
-            let mut compute_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
-                label: Some("Compute Pass"),
-            });
-            compute_pass.set_pipeline(&self.compute_pipeline); // Compute pipeline you've created
-            compute_pass.set_bind_group(0, &self.compute_bind_group, &[]);
+                let workgroup_count =
+                    (self.cloth_num_vertices as f32 / WORKGROUP_SIZE as f32).ceil() as u32;
+                compute_pass.dispatch_workgroups(workgroup_count, 1, 1);
+            }
 
-            let workgroup_count =
-                (self.cloth_num_indices as f32 / WORKGROUP_SIZE as f32).ceil() as u32;
-            compute_pass.dispatch_workgroups(workgroup_count, 1, 1);
+            context.queue().submit(std::iter::once(encoder.finish()));
+
+            self.step += 1;
+            self.last_generation = Instant::now();
         }
-
-        context.queue().submit(std::iter::once(encoder.finish()));
     }
 }
 
@@ -409,10 +339,10 @@ impl App for ClothSimApp {
 
             // Draw the sphere
             render_pass.set_pipeline(&self.render_pipeline);
-            // render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-            // render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+            render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+            render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
             render_pass.set_bind_group(0, &self.camera.bind_group(), &[]);
-            // render_pass.draw_indexed(0..self.num_indices, 0, 0..1);
+            render_pass.draw_indexed(0..self.num_indices, 0, 0..1);
 
             // Draw the cloth
             render_pass.set_vertex_buffer(0, self.cloth_vertex_position_buffer.slice(..));

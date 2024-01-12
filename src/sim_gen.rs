@@ -1,21 +1,18 @@
-use std::f32::NAN;
+use std::{f32::NAN, vec};
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct Vertex {
     // Position of the vertex in 3D space
-    pub position: [f32; 3],
+    pub position: [f32; 4],
 
     // Color of the vertex, useful for debugging or visual effects
-    pub color: [f32; 3],
-    // // Normal vector for lighting calculations
-    // pub normal: [f32; 3],
+    pub color: [f32; 4],
 
+    // Velocity of the vertex in 3D space
+    pub velocity: [f32; 4],
     // // Texture coordinates, if you plan to apply a texture to the cloth
     // pub tex_coords: [f32; 2],
-
-    // // Velocity of the vertex in 3D space
-    // pub velocity: [f32; 3],
 
     // // Mass of the vertex
     // pub mass: f32,
@@ -39,31 +36,9 @@ impl Vertex {
                     format: wgpu::VertexFormat::Float32x3,
                 },
                 wgpu::VertexAttribute {
-                    offset: (mem::size_of::<[f32; 3]>() * 2) as wgpu::BufferAddress,
+                    offset: mem::size_of::<[f32; 6]>() as wgpu::BufferAddress,
                     shader_location: 2,
                     format: wgpu::VertexFormat::Float32x3,
-                },
-                wgpu::VertexAttribute {
-                    offset: (mem::size_of::<[f32; 3]>() * 2 + mem::size_of::<[f32; 2]>())
-                        as wgpu::BufferAddress,
-                    shader_location: 3,
-                    format: wgpu::VertexFormat::Float32x2,
-                },
-                wgpu::VertexAttribute {
-                    offset: (mem::size_of::<[f32; 3]>() * 2
-                        + mem::size_of::<[f32; 2]>()
-                        + mem::size_of::<[f32; 3]>())
-                        as wgpu::BufferAddress,
-                    shader_location: 4,
-                    format: wgpu::VertexFormat::Float32x3,
-                },
-                wgpu::VertexAttribute {
-                    offset: (mem::size_of::<[f32; 3]>() * 3
-                        + mem::size_of::<[f32; 2]>()
-                        + mem::size_of::<[f32; 3]>())
-                        as wgpu::BufferAddress,
-                    shader_location: 5,
-                    format: wgpu::VertexFormat::Float32,
                 },
             ],
         }
@@ -91,11 +66,12 @@ pub fn generate_cloth(
                     j as f32 * spacing - width as f32 * spacing / 2.0, // Centering the cloth on X-axis
                     cloth_height, // Positioning above the sphere
                     i as f32 * spacing - height as f32 * spacing / 2.0, // Centering the cloth on Z-axis
+                    0.0,
                 ],
-                color: [NAN, NAN, 1.0],
+                color: [NAN, NAN, 1.0, 0.0],
                 // normal: [0.0, 1.0, 0.0], // pointing up
                 // tex_coords: [j as f32 / width as f32, i as f32 / height as f32],
-                // velocity: [0.0, 0.0, 0.0],
+                velocity: [0.0, 0.0, 0.0, 0.0],
                 // mass: 1.0,
             });
         }
@@ -142,12 +118,12 @@ pub fn generate_sphere(radius: f32, sectors: usize, stacks: usize) -> (Vec<Verte
             let y = xy * sector_angle.sin();
 
             vertices.push(Vertex {
-                position: [x, y, z],
-                color: [1.0, NAN, NAN], // red color
-                                        // normal: [x, y, z],      // normals are the same as positions for a sphere
-                                        // tex_coords: [j as f32 / sectors as f32, i as f32 / stacks as f32],
-                                        // velocity: [0.0, 0.0, 0.0],
-                                        // mass: 1.0,
+                position: [x, y, z, 0.0],
+                color: [1.0, NAN, NAN, 0.0], // red color
+                velocity: [0.0, 0.0, 0.0, 0.0],
+                // normal: [x, y, z],      // normals are the same as positions for a sphere
+                // tex_coords: [j as f32 / sectors as f32, i as f32 / stacks as f32],
+                // mass: 1.0,
             });
         }
     }
