@@ -77,6 +77,7 @@ pub fn generate_cloth(
     spacing: f32,
     sphere_radius: f32,
     offset: f32,
+    max_sphere_index: u32,
 ) -> (Vec<Vertex>, Vec<u32>) {
     let mut vertices = Vec::new();
     let mut indices = Vec::new();
@@ -103,11 +104,12 @@ pub fn generate_cloth(
     }
 
     // Generate indices for triangles
+    let index_offset: usize = (max_sphere_index + 1) as usize; // Offset for the cloth indices
     for i in 0..(height - 1) {
         for j in 0..(width - 1) {
-            let top_left = i * width + j;
+            let top_left = i * width + j + index_offset;
             let top_right = top_left + 1;
-            let bottom_left = (i + 1) * width + j;
+            let bottom_left = (i + 1) * width + j + index_offset;
             let bottom_right = bottom_left + 1;
 
             indices.extend(&[

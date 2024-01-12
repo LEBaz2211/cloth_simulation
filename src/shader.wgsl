@@ -11,7 +11,13 @@ struct VertexInput {
     @location(4) velocity: vec3<f32>,
     @location(5) mass: f32,
 };
-@group(0) @binding(1) var<storage> model: VertexInput;
+
+struct ClothVertexState {
+    position: vec3<f32>,
+    velocity: vec3<f32>,
+};
+
+@group(0) @binding(2) var<storage, read> clothVertices: array<ClothVertexState>;
 
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
@@ -20,17 +26,16 @@ struct VertexOutput {
 
 @vertex
 fn vs_main(
-    model: VertexInput,
+    vertex: VertexInput
 ) -> VertexOutput {
     var out: VertexOutput;
-    out.color = model.color;
-    // extract model position from vertex input
-    var zoom_factor = 0.5;
-    var x = model.position[0] * zoom_factor;
-    var y = (model.position[1] - 0.8) * zoom_factor;
-    var z = model.position[2] * zoom_factor;
+    out.color = vertex.color;
 
-    // transform model position to clip space
+    let zoom_factor = 0.5;
+    let x = vertex.position[0] * zoom_factor;
+    let y = (vertex.position[1] - 0.8) * zoom_factor;
+    let z = vertex.position[2] * zoom_factor;
+
     out.clip_position = camera.view_proj * vec4<f32>(x, y, z, 1.0);
     return out;
 }
