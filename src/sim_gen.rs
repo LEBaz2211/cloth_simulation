@@ -8,18 +8,17 @@ pub struct Vertex {
 
     // Color of the vertex, useful for debugging or visual effects
     pub color: [f32; 3],
+    // // Normal vector for lighting calculations
+    // pub normal: [f32; 3],
 
-    // Normal vector for lighting calculations
-    pub normal: [f32; 3],
+    // // Texture coordinates, if you plan to apply a texture to the cloth
+    // pub tex_coords: [f32; 2],
 
-    // Texture coordinates, if you plan to apply a texture to the cloth
-    pub tex_coords: [f32; 2],
+    // // Velocity of the vertex in 3D space
+    // pub velocity: [f32; 3],
 
-    // Velocity of the vertex in 3D space
-    pub velocity: [f32; 3],
-
-    // Mass of the vertex
-    pub mass: f32,
+    // // Mass of the vertex
+    // pub mass: f32,
 }
 
 impl Vertex {
@@ -94,10 +93,10 @@ pub fn generate_cloth(
                     i as f32 * spacing - height as f32 * spacing / 2.0, // Centering the cloth on Z-axis
                 ],
                 color: [NAN, NAN, 1.0],
-                normal: [0.0, 1.0, 0.0], // pointing up
-                tex_coords: [j as f32 / width as f32, i as f32 / height as f32],
-                velocity: [0.0, 0.0, 0.0],
-                mass: 1.0,
+                // normal: [0.0, 1.0, 0.0], // pointing up
+                // tex_coords: [j as f32 / width as f32, i as f32 / height as f32],
+                // velocity: [0.0, 0.0, 0.0],
+                // mass: 1.0,
             });
         }
     }
@@ -145,10 +144,10 @@ pub fn generate_sphere(radius: f32, sectors: usize, stacks: usize) -> (Vec<Verte
             vertices.push(Vertex {
                 position: [x, y, z],
                 color: [1.0, NAN, NAN], // red color
-                normal: [x, y, z],      // normals are the same as positions for a sphere
-                tex_coords: [j as f32 / sectors as f32, i as f32 / stacks as f32],
-                velocity: [0.0, 0.0, 0.0],
-                mass: 1.0,
+                                        // normal: [x, y, z],      // normals are the same as positions for a sphere
+                                        // tex_coords: [j as f32 / sectors as f32, i as f32 / stacks as f32],
+                                        // velocity: [0.0, 0.0, 0.0],
+                                        // mass: 1.0,
             });
         }
     }

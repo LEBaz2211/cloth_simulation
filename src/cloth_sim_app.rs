@@ -9,35 +9,40 @@ use wgpu_bootstrap::{
     winit::event::Event,
 };
 
+const SPHERE_RADIUS: f32 = 1.0;
+const CLOTH_OFFSET: f32 = 0.5;
+
+const CLOTH_WIDTH: usize = 30;
+const CLOTH_HEIGHT: usize = 30;
+const CLOTH_SPACING: f32 = 0.1;
+
 pub struct ClothSimApp {
     vertex_buffer: wgpu::Buffer,
     index_buffer: wgpu::Buffer,
     render_pipeline: wgpu::RenderPipeline,
     num_indices: u32,
-    cloth_vertices: Vec<Vertex>,
     cloth_vertex_buffer: wgpu::Buffer,
     cloth_index_buffer: wgpu::Buffer,
     cloth_num_indices: u32,
-    bind_group: [wgpu::BindGroup; 2],
     step: u32,
     camera: OrbitCamera,
-    compute_pipeline: wgpu::ComputePipeline,
+    // compute_pipeline: wgpu::ComputePipeline,
     simulation_time: f32,
 }
 
 impl ClothSimApp {
     pub fn new(context: &mut Context) -> Self {
-        context.window().set_title("Cube App");
+        context.window().set_title("Cloth Simulation App");
 
-        let sphere_radius = 1.0; // Assuming the sphere radius is 1.0
-        let cloth_offset = 0.5; // Offset above the sphere, adjust as needed
+        // Generate the sphere
 
-        let (sphere_vertices, sphere_indices) = generate_sphere(1.0, 16, 16);
-        // cast vec to array
+        let (sphere_vertices, sphere_indices) = generate_sphere(SPHERE_RADIUS, 16, 16);
+
         let sphere_vertices: &[Vertex] = &sphere_vertices
             .iter()
             .map(|v| v.clone())
             .collect::<Vec<Vertex>>();
+
         let sphere_indices: &[u32] = &sphere_indices;
 
         let index_buffer = context
@@ -59,9 +64,16 @@ impl ClothSimApp {
                     usage: wgpu::BufferUsages::VERTEX,
                 });
 
-        let (cloth_vertices, cloth_indices) =
-            generate_cloth(30, 30, 0.1, sphere_radius, cloth_offset);
-        // cast vec to array
+        // Generate the cloth
+
+        let (cloth_vertices, cloth_indices) = generate_cloth(
+            CLOTH_WIDTH,
+            CLOTH_HEIGHT,
+            CLOTH_SPACING,
+            SPHERE_RADIUS,
+            CLOTH_OFFSET,
+        );
+
         let cloth_vertices: &[Vertex] = &cloth_vertices
             .iter()
             .map(|v| v.clone())
@@ -168,49 +180,6 @@ impl ClothSimApp {
             .set_polar(cgmath::point3(2.0, 0.0, 0.0))
             .update(context);
 
-        let bind_group = [
-            context
-                .device()
-                .create_bind_group(&wgpu::BindGroupDescriptor {
-                    label: Some("Bind Group Ping"),
-                    layout: &bind_group_layout,
-                    entries: &[
-                        wgpu::BindGroupEntry {
-                            binding: 0,
-                            resource: camera.buffer().as_entire_binding(),
-                        },
-                        wgpu::BindGroupEntry {
-                            binding: 1,
-                            resource: cloth_vertex_storage_buffer[0].as_entire_binding(),
-                        },
-                        wgpu::BindGroupEntry {
-                            binding: 2,
-                            resource: cloth_vertex_storage_buffer[1].as_entire_binding(),
-                        },
-                    ],
-                }),
-            context
-                .device()
-                .create_bind_group(&wgpu::BindGroupDescriptor {
-                    label: Some("Bind Group Pong"),
-                    layout: &bind_group_layout,
-                    entries: &[
-                        wgpu::BindGroupEntry {
-                            binding: 0,
-                            resource: camera.buffer().as_entire_binding(),
-                        },
-                        wgpu::BindGroupEntry {
-                            binding: 1,
-                            resource: cloth_vertex_storage_buffer[1].as_entire_binding(),
-                        },
-                        wgpu::BindGroupEntry {
-                            binding: 2,
-                            resource: cloth_vertex_storage_buffer[0].as_entire_binding(),
-                        },
-                    ],
-                }),
-        ];
-
         let shader = context
             .device()
             .create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -218,12 +187,16 @@ impl ClothSimApp {
                 source: wgpu::ShaderSource::Wgsl(include_str!("shader.wgsl").into()),
             });
 
+        let camera_bind_group_layout = context
+            .device()
+            .create_bind_group_layout(&CameraUniform::desc());
+
         let pipeline_layout =
             context
                 .device()
                 .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                     label: Some("Render Pipeline Layout"),
-                    bind_group_layouts: &[&bind_group_layout],
+                    bind_group_layouts: &[&camera_bind_group_layout],
                     push_constant_ranges: &[],
                 });
 
@@ -273,64 +246,39 @@ impl ClothSimApp {
                     multiview: None,
                 });
 
-        let compute_shader = context
-            .device()
-            .create_shader_module(wgpu::ShaderModuleDescriptor {
-                label: Some("Compute Shader"),
-                source: wgpu::ShaderSource::Wgsl(include_str!("cloth_sim_compute.wgsl").into()),
-            });
+        // let compute_shader = context
+        //     .device()
+        //     .create_shader_module(wgpu::ShaderModuleDescriptor {
+        //         label: Some("Compute Shader"),
+        //         source: wgpu::ShaderSource::Wgsl(include_str!("cloth_sim_compute.wgsl").into()),
+        //     });
 
-        let compute_pipeline =
-            context
-                .device()
-                .create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-                    label: Some("Compute Pipeline"),
-                    layout: Some(&pipeline_layout),
-                    module: &compute_shader,
-                    entry_point: "main",
-                });
+        // let compute_pipeline =
+        //     context
+        //         .device()
+        //         .create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+        //             label: Some("Compute Pipeline"),
+        //             layout: Some(&pipeline_layout),
+        //             module: &compute_shader,
+        //             entry_point: "main",
+        //         });
 
         Self {
             vertex_buffer,
             index_buffer,
             render_pipeline,
             num_indices,
-            cloth_vertices: cloth_vertices.to_vec(),
             cloth_vertex_buffer,
             cloth_index_buffer,
             cloth_num_indices,
-            compute_pipeline,
+            // compute_pipeline,
             step: 0,
-            bind_group,
             camera,
             simulation_time: 0.0,
         }
     }
 
-    fn update(&mut self, context: &mut Context) {
-        let mut encoder =
-            context
-                .device()
-                .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                    label: Some("Compute Encoder"),
-                });
-
-        {
-            let mut compute_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
-                label: Some("Compute Pass"),
-            });
-
-            compute_pass.set_pipeline(&self.compute_pipeline);
-            compute_pass.set_bind_group(0, &self.bind_group[(self.step % 2) as usize], &[]);
-
-            let workgroup_count = (self.cloth_num_indices as f32 / 8 as f32).ceil() as u32;
-            compute_pass.dispatch_workgroups(workgroup_count, workgroup_count, 1);
-        }
-
-        context.queue().submit(std::iter::once(encoder.finish()));
-
-        self.step += 1;
-    }
+    fn update(&mut self, context: &mut Context) {}
 }
 
 impl App for ClothSimApp {
@@ -376,14 +324,13 @@ impl App for ClothSimApp {
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
             render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
-            render_pass.set_bind_group(0, &self.bind_group[(self.step % 2) as usize], &[]);
+            render_pass.set_bind_group(0, &self.camera.bind_group(), &[]);
             render_pass.draw_indexed(0..self.num_indices, 0, 0..1);
 
             // Draw the cloth
             render_pass.set_vertex_buffer(0, self.cloth_vertex_buffer.slice(..));
             render_pass
                 .set_index_buffer(self.cloth_index_buffer.slice(..), wgpu::IndexFormat::Uint32);
-            render_pass.set_bind_group(0, &self.bind_group[(self.step % 2) as usize], &[]);
             render_pass.draw_indexed(0..self.cloth_num_indices, 0, 0..1);
         }
 

@@ -11,7 +11,6 @@ struct VertexInput {
     @location(4) velocity: vec3<f32>,
     @location(5) mass: f32,
 };
-@group(0) @binding(1) var<storage> model: VertexInput;
 
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
