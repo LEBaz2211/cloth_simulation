@@ -14,8 +14,8 @@ pub struct Vertex {
     // // Texture coordinates, if you plan to apply a texture to the cloth
     // pub tex_coords: [f32; 2],
 
-    // // Mass of the vertex
-    // pub mass: f32,
+    // Mass of the vertex
+    pub mass: [f32; 4],
 }
 
 impl Vertex {
@@ -38,6 +38,11 @@ impl Vertex {
                 wgpu::VertexAttribute {
                     offset: mem::size_of::<[f32; 6]>() as wgpu::BufferAddress,
                     shader_location: 2,
+                    format: wgpu::VertexFormat::Float32x3,
+                },
+                wgpu::VertexAttribute {
+                    offset: mem::size_of::<[f32; 9]>() as wgpu::BufferAddress,
+                    shader_location: 3,
                     format: wgpu::VertexFormat::Float32x3,
                 },
             ],
@@ -72,7 +77,7 @@ pub fn generate_cloth(
                 // normal: [0.0, 1.0, 0.0], // pointing up
                 // tex_coords: [j as f32 / width as f32, i as f32 / height as f32],
                 velocity: [0.0, 0.0, 0.0, 0.0],
-                // mass: 1.0,
+                mass: [1.0, 0.0, 0.0, 0.0],
             });
         }
     }
@@ -123,7 +128,7 @@ pub fn generate_sphere(radius: f32, sectors: usize, stacks: usize) -> (Vec<Verte
                 velocity: [0.0, 0.0, 0.0, 0.0],
                 // normal: [x, y, z],      // normals are the same as positions for a sphere
                 // tex_coords: [j as f32 / sectors as f32, i as f32 / stacks as f32],
-                // mass: 1.0,
+                mass: [1.0, 0.0, 0.0, 0.0],
             });
         }
     }

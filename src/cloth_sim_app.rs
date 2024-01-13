@@ -40,6 +40,21 @@ pub struct ClothSimApp {
     last_generation: Instant,
 }
 
+#[repr(C)]
+#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
+struct UniformsFloats {
+    damping: f32,
+    timeStep: f32,
+    sphereRadius: f32,
+}
+
+#[repr(C)]
+#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
+struct UniformsArrays {
+    gravity: [f32; 4],
+    sphereCenter: [f32; 4],
+}
+
 impl ClothSimApp {
     pub fn new(context: &mut Context) -> Self {
         context.window().set_title("Cloth Simulation App");
@@ -114,22 +129,75 @@ impl ClothSimApp {
                         | wgpu::BufferUsages::COPY_DST,
                 });
 
+        // set up the uniforms
+
+        let uniformsFloats = UniformsFloats {
+            damping: 0.99,
+            timeStep: 0.01,
+            sphereRadius: SPHERE_RADIUS,
+        };
+
+        let uniformsArrays = UniformsArrays {
+            gravity: [0.0, -9.8, 0.0, 0.0],
+            sphereCenter: [0.0, 0.0, 0.0, 0.0],
+        };
+
+        let uniform_buffer_floats =
+            context
+                .device()
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("Uniform Buffer"),
+                    contents: bytemuck::cast_slice(&[uniformsFloats]),
+                    usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+                });
+
+        let uniform_buffer_arrays =
+            context
+                .device()
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("Uniform Buffer"),
+                    contents: bytemuck::cast_slice(&[uniformsArrays]),
+                    usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+                });
+
         // SETTING UP BIND GROUPS
 
         let compute_bind_group_layout =
             context
                 .device()
                 .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                    entries: &[wgpu::BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: wgpu::ShaderStages::COMPUTE,
-                        ty: wgpu::BindingType::Buffer {
-                            ty: wgpu::BufferBindingType::Storage { read_only: false },
-                            has_dynamic_offset: false,
-                            min_binding_size: None,
+                    entries: &[
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 0,
+                            visibility: wgpu::ShaderStages::COMPUTE,
+                            ty: wgpu::BindingType::Buffer {
+                                ty: wgpu::BufferBindingType::Storage { read_only: false },
+                                has_dynamic_offset: false,
+                                min_binding_size: None,
+                            },
+                            count: None,
                         },
-                        count: None,
-                    }],
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 1,
+                            visibility: wgpu::ShaderStages::COMPUTE,
+                            ty: wgpu::BindingType::Buffer {
+                                ty: wgpu::BufferBindingType::Uniform,
+                                has_dynamic_offset: false,
+                                min_binding_size: None,
+                            },
+                            count: None,
+                        },
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 2,
+                            visibility: wgpu::ShaderStages::COMPUTE,
+                            ty: wgpu::BindingType::Buffer {
+                                ty: wgpu::BufferBindingType::Uniform,
+                                has_dynamic_offset: false,
+                                min_binding_size: None,
+                            },
+                            count: None,
+                        },
+                    ],
                     label: Some("compute_bind_group_layout"),
                 });
 
@@ -137,10 +205,20 @@ impl ClothSimApp {
             .device()
             .create_bind_group(&wgpu::BindGroupDescriptor {
                 layout: &compute_bind_group_layout,
-                entries: &[wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: cloth_vertex_position_buffer.as_entire_binding(),
-                }],
+                entries: &[
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: cloth_vertex_position_buffer.as_entire_binding(),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: uniform_buffer_floats.as_entire_binding(),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 2,
+                        resource: uniform_buffer_arrays.as_entire_binding(),
+                    },
+                ],
                 label: Some("compute_bind_group"),
             });
 
