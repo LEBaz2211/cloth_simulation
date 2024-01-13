@@ -46,6 +46,8 @@ struct UniformsFloats {
     damping: f32,
     timeStep: f32,
     sphereRadius: f32,
+    gridWidth: u32,
+    gridHeight: u32,
 }
 
 #[repr(C)]
@@ -53,6 +55,18 @@ struct UniformsFloats {
 struct UniformsArrays {
     gravity: [f32; 4],
     sphereCenter: [f32; 4],
+}
+
+#[repr(C)]
+#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
+struct UniformsSpring {
+    structuralStiffness: f32,
+    shearStiffness: f32,
+    bendStiffness: f32,
+    restLengthStructural: f32,
+    restLengthShear: f32,
+    restLengthBend: f32,
+    // Add more parameters as needed
 }
 
 impl ClothSimApp {
@@ -135,11 +149,22 @@ impl ClothSimApp {
             damping: 0.99,
             timeStep: 0.01,
             sphereRadius: SPHERE_RADIUS,
+            gridWidth: CLOTH_WIDTH as u32,
+            gridHeight: CLOTH_HEIGHT as u32,
         };
 
         let uniformsArrays = UniformsArrays {
             gravity: [0.0, -9.8, 0.0, 0.0],
             sphereCenter: [0.0, 0.0, 0.0, 0.0],
+        };
+
+        let uniformsSpring = UniformsSpring {
+            structuralStiffness: 100.0,
+            shearStiffness: 100.0,
+            bendStiffness: 100.0,
+            restLengthStructural: CLOTH_SPACING,
+            restLengthShear: CLOTH_SPACING * 2.0f32.sqrt(),
+            restLengthBend: CLOTH_SPACING * 2.0,
         };
 
         let uniform_buffer_floats =
@@ -157,6 +182,15 @@ impl ClothSimApp {
                 .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                     label: Some("Uniform Buffer"),
                     contents: bytemuck::cast_slice(&[uniformsArrays]),
+                    usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+                });
+
+        let uniform_buffer_spring =
+            context
+                .device()
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("Uniform Buffer"),
+                    contents: bytemuck::cast_slice(&[uniformsSpring]),
                     usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
                 });
 
@@ -197,6 +231,16 @@ impl ClothSimApp {
                             },
                             count: None,
                         },
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 3,
+                            visibility: wgpu::ShaderStages::COMPUTE,
+                            ty: wgpu::BindingType::Buffer {
+                                ty: wgpu::BufferBindingType::Uniform,
+                                has_dynamic_offset: false,
+                                min_binding_size: None,
+                            },
+                            count: None,
+                        },
                     ],
                     label: Some("compute_bind_group_layout"),
                 });
@@ -217,6 +261,10 @@ impl ClothSimApp {
                     wgpu::BindGroupEntry {
                         binding: 2,
                         resource: uniform_buffer_arrays.as_entire_binding(),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 3,
+                        resource: uniform_buffer_spring.as_entire_binding(),
                     },
                 ],
                 label: Some("compute_bind_group"),

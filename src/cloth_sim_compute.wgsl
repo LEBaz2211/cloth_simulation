@@ -9,6 +9,8 @@ struct UniformsFloats {
     damping: f32,
     timeStep: f32,
     sphereRadius: f32,
+    gridWidth: u32,
+    gridHeight: u32,
     // Add more uniform parameters as needed
 };
 
@@ -18,9 +20,29 @@ struct UniformsVec4 {
     // Add more uniform parameters as needed
 };
 
+struct UniformsSpring {
+    structuralStiffness: f32,
+    shearStiffness: f32,
+    bendStiffness: f32,
+    restLengthStructural: f32,
+    restLengthShear: f32,
+    restLengthBend: f32,
+    // Add more parameters as needed
+};
+
 @group(0) @binding(0) var<storage, read_write> vertexPositions: array<VertexInput>;
 @group(0) @binding(1) var<uniform> uniforms_floats: UniformsFloats;
 @group(0) @binding(2) var<uniform> uniforms_vec4: UniformsVec4;
+@group(0) @binding(3) var<uniform> uniforms_spring: UniformsSpring;
+
+// Function to calculate spring force between two vertices
+fn calculate_spring_force(p1: vec4<f32>, p2: vec4<f32>, rest_length: f32, stiffness: f32) -> vec4<f32> {
+    let displacement_vector: vec4<f32> = p1 - p2;
+    let displacement_length: f32 = length(displacement_vector);
+    let spring_vector: vec4<f32> = normalize(displacement_vector);
+    let spring_force: vec4<f32> = -stiffness * (displacement_length - rest_length) * spring_vector;
+    return spring_force;
+}
 
 @compute
 @workgroup_size(128)
@@ -37,8 +59,45 @@ fn main(@builtin(global_invocation_id) global_id: vec3u) {
     // Initialize total force with gravity and damping
     var totalForce = gravityForce - uniforms_floats.damping * vertex.velocity;
 
-    // Add spring forces, collision detection, etc. here...
-    // ...
+    // Initialize spring force
+    var springForce: vec4<f32> = vec4<f32>(0.0, 0.0, 0.0, 0.0);
+
+    // Calculate forces for structural springs
+    // Assuming vertexPositions is a 2D grid flattened into a 1D array, and we know grid width and height
+    let width: u32 = uniforms_floats.gridWidth;
+    let height: u32 = uniforms_floats.gridHeight;
+    let current_row: u32 = idx / width;
+    let current_column: u32 = idx % width;
+    let restLengthStructural: f32 = uniforms_spring.restLengthStructural;
+
+    // Check neighbors (left, right, up, down) for structural springs
+    if (current_column > 0u) {
+        // Neighbor to the left
+        let left_idx = idx - 1u;
+        springForce += calculate_spring_force(vertex.position, vertexPositions[left_idx].position, restLengthStructural, uniforms_spring.structuralStiffness);
+    }
+    if (current_column < (width - 1u)) {
+        // Neighbor to the right
+        let right_idx = idx + 1u;
+        springForce += calculate_spring_force(vertex.position, vertexPositions[right_idx].position, restLengthStructural, uniforms_spring.structuralStiffness);
+    }
+    if (current_row > 0u) {
+        // Neighbor above
+        let up_idx = idx - width;
+        springForce += calculate_spring_force(vertex.position, vertexPositions[up_idx].position, restLengthStructural, uniforms_spring.structuralStiffness);
+    }
+    if (current_row < (height - 1u)) {
+        // Neighbor below
+        let down_idx = idx + width;
+        springForce += calculate_spring_force(vertex.position, vertexPositions[down_idx].position, restLengthStructural, uniforms_spring.structuralStiffness);
+    }
+    
+    // ... Calculate forces for shear and bend springs in a similar way ...
+
+
+    // Integrate the spring force into the total force
+    totalForce += vertex.velocity + springForce * uniforms_floats.timeStep;
+
     
     // Collision detection and response with the sphere
     let toSphere = vertex.position.xyz - uniforms_vec4.sphereCenter.xyz;
