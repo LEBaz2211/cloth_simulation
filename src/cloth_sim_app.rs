@@ -14,8 +14,10 @@ use wgpu_bootstrap::{
 const WORKGROUP_SIZE: u32 = 128;
 
 const SPHERE_RADIUS: f32 = 1.0;
-const CLOTH_OFFSET: f32 = 0.5;
+const SPHERE_SECTORS: usize = 30;
+const SPHERE_STACKS: usize = 30;
 
+const CLOTH_OFFSET: f32 = 0.5;
 const CLOTH_WIDTH: usize = 30;
 const CLOTH_HEIGHT: usize = 30;
 const CLOTH_SPACING: f32 = 0.1;
@@ -75,7 +77,8 @@ impl ClothSimApp {
 
         // Generate the sphere
 
-        let (sphere_vertices, sphere_indices) = generate_sphere(SPHERE_RADIUS, 16, 16);
+        let (sphere_vertices, sphere_indices) =
+            generate_sphere(SPHERE_RADIUS, SPHERE_SECTORS, SPHERE_STACKS);
 
         let sphere_vertices: &[Vertex] = &sphere_vertices
             .iter()
