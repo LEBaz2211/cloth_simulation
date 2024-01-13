@@ -91,12 +91,54 @@ fn main(@builtin(global_invocation_id) global_id: vec3u) {
         let down_idx = idx + width;
         springForce += calculate_spring_force(vertex.position, vertexPositions[down_idx].position, restLengthStructural, uniforms_spring.structuralStiffness);
     }
-    
-    // ... Calculate forces for shear and bend springs in a similar way ...
+
+    // Shear springs: Diagonal neighbors
+    if (current_row > 0u && current_column > 0u) {
+        // Upper left diagonal neighbor
+        let upper_left_idx = idx - width - 1u;
+        springForce += calculate_spring_force(vertex.position, vertexPositions[upper_left_idx].position, uniforms_spring.restLengthShear, uniforms_spring.shearStiffness);
+    }
+    if (current_row > 0u && current_column < (width - 1u)) {
+        // Upper right diagonal neighbor
+        let upper_right_idx = idx - width + 1u;
+        springForce += calculate_spring_force(vertex.position, vertexPositions[upper_right_idx].position, uniforms_spring.restLengthShear, uniforms_spring.shearStiffness);
+    }
+    if (current_row < (height - 1u) && current_column > 0u) {
+        // Lower left diagonal neighbor
+        let lower_left_idx = idx + width - 1u;
+        springForce += calculate_spring_force(vertex.position, vertexPositions[lower_left_idx].position, uniforms_spring.restLengthShear, uniforms_spring.shearStiffness);
+    }
+    if (current_row < (height - 1u) && current_column < (width - 1u)) {
+        // Lower right diagonal neighbor
+        let lower_right_idx = idx + width + 1u;
+        springForce += calculate_spring_force(vertex.position, vertexPositions[lower_right_idx].position, uniforms_spring.restLengthShear, uniforms_spring.shearStiffness);
+    }
+
+    // Bend springs: Neighbors two positions away
+    if (current_column > 1u) {
+        // Two left
+        let two_left_idx = idx - 2u;
+        springForce += calculate_spring_force(vertex.position, vertexPositions[two_left_idx].position, uniforms_spring.restLengthBend, uniforms_spring.bendStiffness);
+    }
+    if (current_column < (width - 2u)) {
+        // Two right
+        let two_right_idx = idx + 2u;
+        springForce += calculate_spring_force(vertex.position, vertexPositions[two_right_idx].position, uniforms_spring.restLengthBend, uniforms_spring.bendStiffness);
+    }
+    if (current_row > 1u) {
+        // Two above
+        let two_up_idx = idx - 2u * width;
+        springForce += calculate_spring_force(vertex.position, vertexPositions[two_up_idx].position, uniforms_spring.restLengthBend, uniforms_spring.bendStiffness);
+    }
+    if (current_row < (height - 2u)) {
+        // Two below
+        let two_down_idx = idx + 2u * width;
+        springForce += calculate_spring_force(vertex.position, vertexPositions[two_down_idx].position, uniforms_spring.restLengthBend, uniforms_spring.bendStiffness);
+    }
 
 
     // Integrate the spring force into the total force
-    totalForce += vertex.velocity + springForce * uniforms_floats.timeStep;
+    totalForce += springForce;
 
     
     // Collision detection and response with the sphere

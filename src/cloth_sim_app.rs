@@ -159,9 +159,9 @@ impl ClothSimApp {
         };
 
         let uniformsSpring = UniformsSpring {
-            structuralStiffness: 100.0,
-            shearStiffness: 100.0,
-            bendStiffness: 100.0,
+            structuralStiffness: 1000.0,
+            shearStiffness: 1000.0,
+            bendStiffness: 1000.0,
             restLengthStructural: CLOTH_SPACING,
             restLengthShear: CLOTH_SPACING * 2.0f32.sqrt(),
             restLengthBend: CLOTH_SPACING * 2.0,
