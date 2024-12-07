@@ -14,13 +14,23 @@ use wgpu_bootstrap::{
 const WORKGROUP_SIZE: u32 = 128;
 
 const SPHERE_RADIUS: f32 = 1.0;
-const SPHERE_SECTORS: usize = 30;
-const SPHERE_STACKS: usize = 30;
+const SPHERE_SECTORS: usize = 50;
+const SPHERE_STACKS: usize = 50;
 
-const CLOTH_OFFSET: f32 = 0.5;
-const CLOTH_WIDTH: usize = 30;
-const CLOTH_HEIGHT: usize = 30;
-const CLOTH_SPACING: f32 = 0.1;
+const CLOTH_OFFSET: f32 = 1.0;
+const CLOTH_WIDTH: usize = 50;
+const CLOTH_HEIGHT: usize = 50;
+const CLOTH_SPACING: f32 = 0.08;
+const CLOTH_MASS: f32 = 0.9;
+
+const DAMPING: f32 = 0.99;
+const TIMESTEP: f32 = 0.01;
+const GRAVITY: [f32; 4] = [0.0, -9.8, 0.0, 0.0];
+const SPHERE_CENTER: [f32; 4] = [0.0, 0.0, 0.0, 0.0];
+
+const STRUCTURAL_STIFFNESS: f32 = 1200.0;
+const SHEAR_STIFFNESS: f32 = 1000.0;
+const BEND_STIFFNESS: f32 = 1000.0;
 
 pub struct ClothSimApp {
     vertex_buffer: wgpu::Buffer,
@@ -114,6 +124,7 @@ impl ClothSimApp {
             CLOTH_SPACING,
             SPHERE_RADIUS,
             CLOTH_OFFSET,
+            CLOTH_MASS,
         );
 
         let cloth_vertices: &[Vertex] = &cloth_vertices
@@ -149,22 +160,22 @@ impl ClothSimApp {
         // set up the uniforms
 
         let uniformsFloats = UniformsFloats {
-            damping: 0.99,
-            timeStep: 0.01,
+            damping: DAMPING,
+            timeStep: TIMESTEP,
             sphereRadius: SPHERE_RADIUS,
             gridWidth: CLOTH_WIDTH as u32,
             gridHeight: CLOTH_HEIGHT as u32,
         };
 
         let uniformsArrays = UniformsArrays {
-            gravity: [0.0, -9.8, 0.0, 0.0],
-            sphereCenter: [0.0, 0.0, 0.0, 0.0],
+            gravity: GRAVITY,
+            sphereCenter: SPHERE_CENTER,
         };
 
         let uniformsSpring = UniformsSpring {
-            structuralStiffness: 1000.0,
-            shearStiffness: 1000.0,
-            bendStiffness: 1000.0,
+            structuralStiffness: STRUCTURAL_STIFFNESS,
+            shearStiffness: SHEAR_STIFFNESS,
+            bendStiffness: BEND_STIFFNESS,
             restLengthStructural: CLOTH_SPACING,
             restLengthShear: CLOTH_SPACING * 2.0f32.sqrt(),
             restLengthBend: CLOTH_SPACING * 2.0,

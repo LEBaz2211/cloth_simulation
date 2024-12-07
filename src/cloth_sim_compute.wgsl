@@ -140,17 +140,25 @@ fn main(@builtin(global_invocation_id) global_id: vec3u) {
     // Integrate the spring force into the total force
     totalForce += springForce;
 
+    let sphereRadius: f32 = uniforms_floats.sphereRadius * 1.04;
+
     
     // Collision detection and response with the sphere
     let toSphere = vertex.position.xyz - uniforms_vec4.sphereCenter.xyz;
     let distanceToSphere = length(toSphere);
-    if (distanceToSphere < uniforms_floats.sphereRadius) {
+    if (distanceToSphere < sphereRadius) {
         // Collision detected, reposition vertex on the surface of the sphere
         let normal = normalize(toSphere);
-        let penetrationDepth = uniforms_floats.sphereRadius - distanceToSphere;
+        let penetrationDepth = sphereRadius - distanceToSphere;
         vertex.position.x += normal.x * penetrationDepth;
         vertex.position.y += normal.y * penetrationDepth;
         vertex.position.z += normal.z * penetrationDepth;
+
+        // Increase velocity damping on collision
+        let collisionDampingFactor: f32 = 0.999; // Dampen the velocity more on collision
+        vertex.velocity.x *= 1.0 - collisionDampingFactor;
+        vertex.velocity.y *= 1.0 - collisionDampingFactor;
+        vertex.velocity.z *= 1.0 - collisionDampingFactor;
 
         // Adjust velocity after collision
         // Reflect the velocity vector around the normal (basic response)
@@ -159,15 +167,14 @@ fn main(@builtin(global_invocation_id) global_id: vec3u) {
         vertex.velocity.y -= 2.0 * velocityDotNormal * normal.y;
         vertex.velocity.z -= 2.0 * velocityDotNormal * normal.z;
 
-        // Optionally apply some restitution coefficient if you want the cloth to bounce off
-        // Restitution is the bounciness of the material, 0 for no bounce and 1 for a perfect bounce
-        let restitution: f32 = 0.5; // Example restitution value
+        // // Restitution is the bounciness of the material, 0 for no bounce and 1 for a perfect bounce
+        let restitution: f32 = 0.1; // Example restitution value
         vertex.velocity.x *= restitution;
         vertex.velocity.y *= restitution;
         vertex.velocity.z *= restitution;
 
         // Apply friction if needed
-        let frictionCoeff: f32 = 0.2; // Example friction coefficient
+        let frictionCoeff: f32 = 0.1; // Example friction coefficient
         let tangentialVelocity = vertex.velocity.xyz - velocityDotNormal * normal;
         vertex.velocity.x -= frictionCoeff * tangentialVelocity.x;
         vertex.velocity.y -= frictionCoeff * tangentialVelocity.y;

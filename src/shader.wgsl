@@ -22,7 +22,7 @@ fn vs_main(
     // extract model position from vertex input
     var zoom_factor = 0.5;
     var x = model.position[0] * zoom_factor;
-    var y = (model.position[1] - 0.8) * zoom_factor;
+    var y = (model.position[1] ) * zoom_factor;
     var z = model.position[2] * zoom_factor;
 
     // transform model position to clip space

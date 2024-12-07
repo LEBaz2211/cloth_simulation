@@ -56,6 +56,7 @@ pub fn generate_cloth(
     spacing: f32,
     sphere_radius: f32,
     offset: f32,
+    mass: f32,
 ) -> (Vec<Vertex>, Vec<u32>) {
     let mut vertices = Vec::new();
     let mut indices = Vec::new();
@@ -68,16 +69,16 @@ pub fn generate_cloth(
         for j in 0..width {
             vertices.push(Vertex {
                 position: [
-                    j as f32 * spacing - width as f32 * spacing / 2.0, // Centering the cloth on X-axis
+                    (j as f32 * spacing - width as f32 * spacing / 2.0) + spacing / 2.0, // Centering the cloth on X-axis
                     cloth_height, // Positioning above the sphere
-                    i as f32 * spacing - height as f32 * spacing / 2.0, // Centering the cloth on Z-axis
+                    (i as f32 * spacing - height as f32 * spacing / 2.0) + spacing / 2.0, // Centering the cloth on Z-axis
                     0.0,
                 ],
                 color: [NAN, NAN, 1.0, 0.0],
                 // normal: [0.0, 1.0, 0.0], // pointing up
                 // tex_coords: [j as f32 / width as f32, i as f32 / height as f32],
                 velocity: [0.0, 0.0, 0.0, 0.0],
-                mass: [1.0, 0.0, 0.0, 0.0],
+                mass: [mass, 0.0, 0.0, 0.0],
             });
         }
     }
